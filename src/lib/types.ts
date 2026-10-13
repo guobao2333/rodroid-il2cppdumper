@@ -105,53 +105,127 @@ function asNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
+function asBool(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  return fallback;
+}
+
+function asStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((s) => String(s)).filter((s) => s.length > 0);
+}
+
 /**
- * Keep `methodBodyMode` and legacy bools aligned, and coerce TextField number
- * binds (often strings) back to real numbers so Rust serde does not reject the
- * whole config and silently fall back to defaults (C# off).
+ * Rebuild a clean DumperConfig from known keys only.
+ *
+ * Old localStorage may still carry serde alias keys (`dumpDisassemblyHexBytes`,
+ * `dumpDisassemblyTarget`, …). Spreading those into JSON makes Rust reject the
+ * whole Config with "duplicate field". Allow-listing avoids that forever.
  */
 export function normalizeDumperConfig(config: DumperConfig): DumperConfig {
   const raw = config as DumperConfig & Record<string, unknown>;
-  // Prefer new names; fall back to legacy wire keys from older localStorage.
-  const assemblyTarget = asNumber(
-    raw.assemblyTarget ?? raw.dumpDisassemblyTarget,
-    DEFAULT_CONFIG.assemblyTarget,
-  );
-  const csharpTarget = asNumber(
-    raw.csharpTarget ?? raw.dumpPseudoCTarget,
-    DEFAULT_CONFIG.csharpTarget,
-  );
-  const csharpMaxBodySize = asNumber(
-    raw.csharpMaxBodySize ?? raw.dumpPseudoCMaxBodySize,
-    DEFAULT_CONFIG.csharpMaxBodySize,
-  );
+  const pick = <T>(primary: unknown, legacy: unknown, fallback: T, coerce: (v: unknown, f: T) => T): T =>
+    coerce(primary !== undefined ? primary : legacy, fallback);
 
-  const coerced: DumperConfig = {
-    ...config,
-    forceVersion: asNumber(config.forceVersion, DEFAULT_CONFIG.forceVersion),
-    csharpTarget,
-    assemblyTarget,
-    csharpMaxBodySize,
-    maxAssemblyInstructions: asNumber(
-      config.maxAssemblyInstructions,
+  const cleaned: DumperConfig = {
+    ...DEFAULT_CONFIG,
+    dumpMethod: asBool(raw.dumpMethod, DEFAULT_CONFIG.dumpMethod),
+    dumpField: asBool(raw.dumpField, DEFAULT_CONFIG.dumpField),
+    dumpProperty: asBool(raw.dumpProperty, DEFAULT_CONFIG.dumpProperty),
+    dumpAttribute: asBool(raw.dumpAttribute, DEFAULT_CONFIG.dumpAttribute),
+    dumpMethodOffset: asBool(raw.dumpMethodOffset, DEFAULT_CONFIG.dumpMethodOffset),
+    dumpFieldOffset: asBool(raw.dumpFieldOffset, DEFAULT_CONFIG.dumpFieldOffset),
+    dumpTypeDefIndex: asBool(raw.dumpTypeDefIndex, DEFAULT_CONFIG.dumpTypeDefIndex),
+    dumpAssemblyName: asBool(raw.dumpAssemblyName, DEFAULT_CONFIG.dumpAssemblyName),
+    generateStruct: asBool(raw.generateStruct, DEFAULT_CONFIG.generateStruct),
+    generateDummyDll: asBool(raw.generateDummyDll, DEFAULT_CONFIG.generateDummyDll),
+    dummyDllAddToken: asBool(raw.dummyDllAddToken, DEFAULT_CONFIG.dummyDllAddToken),
+    forceIl2cppVersion: asBool(raw.forceIl2cppVersion, DEFAULT_CONFIG.forceIl2cppVersion),
+    forceVersion: asNumber(raw.forceVersion, DEFAULT_CONFIG.forceVersion),
+    forceDump: asBool(raw.forceDump, DEFAULT_CONFIG.forceDump),
+    noRedirectedPointer: asBool(raw.noRedirectedPointer, DEFAULT_CONFIG.noRedirectedPointer),
+    splitDumpPerType: asBool(raw.splitDumpPerType, DEFAULT_CONFIG.splitDumpPerType),
+    generateGenericsDump: asBool(raw.generateGenericsDump, DEFAULT_CONFIG.generateGenericsDump),
+    dumpGenericsRgctx: asBool(raw.dumpGenericsRgctx, DEFAULT_CONFIG.dumpGenericsRgctx),
+    dumpGenericsMethodSpecs: asBool(raw.dumpGenericsMethodSpecs, DEFAULT_CONFIG.dumpGenericsMethodSpecs),
+    dumpGenericsCustomAttributes: asBool(
+      raw.dumpGenericsCustomAttributes,
+      DEFAULT_CONFIG.dumpGenericsCustomAttributes,
+    ),
+    dumpGenericsStringLiterals: asBool(
+      raw.dumpGenericsStringLiterals,
+      DEFAULT_CONFIG.dumpGenericsStringLiterals,
+    ),
+    dumpGenericsMetadataUsages: asBool(
+      raw.dumpGenericsMetadataUsages,
+      DEFAULT_CONFIG.dumpGenericsMetadataUsages,
+    ),
+    dumpGenericsVtables: asBool(raw.dumpGenericsVtables, DEFAULT_CONFIG.dumpGenericsVtables),
+    dumpGenericsInterfaces: asBool(raw.dumpGenericsInterfaces, DEFAULT_CONFIG.dumpGenericsInterfaces),
+    methodBodyMode: (typeof raw.methodBodyMode === "string"
+      ? raw.methodBodyMode
+      : DEFAULT_CONFIG.methodBodyMode) as MethodBodyMode,
+    dumpDisassembly: asBool(raw.dumpDisassembly, DEFAULT_CONFIG.dumpDisassembly),
+    dumpPseudoC: asBool(raw.dumpPseudoC, DEFAULT_CONFIG.dumpPseudoC),
+    assemblyTarget: pick(raw.assemblyTarget, raw.dumpDisassemblyTarget, DEFAULT_CONFIG.assemblyTarget, asNumber),
+    csharpTarget: pick(raw.csharpTarget, raw.dumpPseudoCTarget, DEFAULT_CONFIG.csharpTarget, asNumber),
+    csharpInteractive: pick(
+      raw.csharpInteractive,
+      raw.dumpPseudoCInteractive,
+      DEFAULT_CONFIG.csharpInteractive,
+      asBool,
+    ),
+    csharpMaxBodySize: pick(
+      raw.csharpMaxBodySize,
+      raw.dumpPseudoCMaxBodySize,
+      DEFAULT_CONFIG.csharpMaxBodySize,
+      asNumber,
+    ),
+    csharpIncludeAssemblies: asStringList(
+      raw.csharpIncludeAssemblies ?? raw.dumpPseudoCIncludeAssemblies,
+    ),
+    csharpIncludeTypes: asStringList(raw.csharpIncludeTypes ?? raw.dumpPseudoCIncludeTypes),
+    assemblyHexBytes: pick(
+      raw.assemblyHexBytes,
+      raw.dumpDisassemblyHexBytes,
+      DEFAULT_CONFIG.assemblyHexBytes,
+      asBool,
+    ),
+    assemblyFieldNames: pick(
+      raw.assemblyFieldNames,
+      raw.dumpDisassemblyFieldNames,
+      DEFAULT_CONFIG.assemblyFieldNames,
+      asBool,
+    ),
+    assemblyAnnotations: pick(
+      raw.assemblyAnnotations,
+      raw.dumpDisassemblyAnnotations,
+      DEFAULT_CONFIG.assemblyAnnotations,
+      asBool,
+    ),
+    assemblyCfg: pick(raw.assemblyCfg, raw.dumpDisassemblyCfg, DEFAULT_CONFIG.assemblyCfg, asBool),
+    maxAssemblyInstructions: pick(
+      raw.maxAssemblyInstructions,
+      raw.maxDisassemblyInstructions,
       DEFAULT_CONFIG.maxAssemblyInstructions,
+      asNumber,
     ),
-    maxFieldRvaDumpBytes: asNumber(
-      config.maxFieldRvaDumpBytes,
-      DEFAULT_CONFIG.maxFieldRvaDumpBytes,
-    ),
+    generateCppScaffold: asBool(raw.generateCppScaffold, DEFAULT_CONFIG.generateCppScaffold),
+    mangleNames: asBool(raw.mangleNames, DEFAULT_CONFIG.mangleNames),
+    enhancedIdaMetadata: asBool(raw.enhancedIdaMetadata, DEFAULT_CONFIG.enhancedIdaMetadata),
+    generateUnityHeaders: asBool(raw.generateUnityHeaders, DEFAULT_CONFIG.generateUnityHeaders),
+    compilerLayout:
+      typeof raw.compilerLayout === "string" ? raw.compilerLayout : DEFAULT_CONFIG.compilerLayout,
+    useTopologicalSort: asBool(raw.useTopologicalSort, DEFAULT_CONFIG.useTopologicalSort),
+    codm: asBool(raw.codm, DEFAULT_CONFIG.codm),
+    dumpStaticFieldMetadata: asBool(raw.dumpStaticFieldMetadata, DEFAULT_CONFIG.dumpStaticFieldMetadata),
+    dumpFieldRvaData: asBool(raw.dumpFieldRvaData, DEFAULT_CONFIG.dumpFieldRvaData),
+    maxFieldRvaDumpBytes: asNumber(raw.maxFieldRvaDumpBytes, DEFAULT_CONFIG.maxFieldRvaDumpBytes),
+    ilRecovery: asBool(raw.ilRecovery, DEFAULT_CONFIG.ilRecovery),
+    pseudoCEngine:
+      typeof raw.pseudoCEngine === "string" ? raw.pseudoCEngine : DEFAULT_CONFIG.pseudoCEngine,
+    annotateRecovery: asBool(raw.annotateRecovery, DEFAULT_CONFIG.annotateRecovery),
   };
-
-  // Strip legacy alias keys so JSON.stringify does not emit both
-  // `assemblyTarget` and `dumpDisassemblyTarget` — serde treats those as one
-  // field and rejects the whole Config with "duplicate field".
-  const cleaned = coerced as DumperConfig & Record<string, unknown>;
-  delete cleaned.dumpDisassemblyTarget;
-  delete cleaned.dumpPseudoCTarget;
-  delete cleaned.dumpPseudoCMaxBodySize;
-  delete cleaned.dumpPseudoCIncludeAssemblies;
-  delete cleaned.dumpPseudoCIncludeTypes;
-  delete cleaned.dumpPseudoCInteractive;
 
   return withMethodBodyMode(cleaned, methodBodyModeOf(cleaned));
 }
