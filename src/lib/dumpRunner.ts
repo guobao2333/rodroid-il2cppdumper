@@ -31,6 +31,14 @@ export async function beginDump(): Promise<void> {
   currentScreen.set("dumping");
 
   const cfg = normalizeDumperConfig(get(config));
+  // Guarantee include lists are real string arrays (never mysteriously lost /
+  // stringified) before they hit Rust.
+  cfg.csharpIncludeAssemblies = (cfg.csharpIncludeAssemblies ?? [])
+    .map((s) => String(s))
+    .filter((s) => s.length > 0);
+  cfg.csharpIncludeTypes = (cfg.csharpIncludeTypes ?? [])
+    .map((s) => String(s))
+    .filter((s) => s.length > 0);
   // Persist the normalized shape so localStorage cannot keep stringy numbers /
   // a stale methodBodyMode that the dialog looked like it had applied.
   config.set(cfg);
@@ -41,8 +49,7 @@ export async function beginDump(): Promise<void> {
       binaryPath: bp,
       metadataPath: mp,
       outputDir: outDir,
-      // Send mode + legacy bools. Rust skips serializing the bools on save, but
-      // still deserializes them — keeps C#/Asm on even if one field mismatches.
+      // Send mode + legacy bools + picker filters.
       configJson: JSON.stringify(cfg),
     });
   } catch (e) {

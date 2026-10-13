@@ -244,10 +244,18 @@ pub fn assembly_matches(image_name: &str, include_assemblies: &[String]) -> bool
     if include_assemblies.is_empty() {
         return true;
     }
-    let base = image_name.trim_end_matches(".dll");
+    let base = image_name
+        .trim()
+        .trim_end_matches(".dll")
+        .trim_end_matches(".DLL");
+    let base_l = base.to_ascii_lowercase();
     include_assemblies.iter().any(|f| {
-        let f = f.trim_end_matches(".dll");
-        base == f || base.starts_with(f)
+        let f = f
+            .trim()
+            .trim_end_matches(".dll")
+            .trim_end_matches(".DLL");
+        let f_l = f.to_ascii_lowercase();
+        base_l == f_l || base_l.starts_with(&f_l)
     })
 }
 

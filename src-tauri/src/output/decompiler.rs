@@ -281,6 +281,10 @@ impl Il2CppDecompiler {
         logger("Dumping types in parallel...");
 
         let image_defs = metadata.image_defs.clone();
+        let include_assemblies = &config.dump_pseudo_c_include_assemblies;
+        let include_types = &config.dump_pseudo_c_include_types;
+        let class_filter_active =
+            !include_assemblies.is_empty() || !include_types.is_empty();
         let type_jobs: Vec<(usize, usize, String)> = image_defs
             .iter()
             .enumerate()
@@ -288,12 +292,37 @@ impl Il2CppDecompiler {
                 let image_name = metadata
                     .get_string_from_index(image_def.name_index)
                     .unwrap_or_else(|_| format!("Assembly-{img_idx}.dll"));
+                // Class picker: when assemblies/types are set, only those types
+                // appear in dump.cs / DiffableCs (not every stub in the game).
+                if class_filter_active
+                    && !crate::output::pseudo_c::assembly_matches(&image_name, include_assemblies)
+                {
+                    return Vec::new();
+                }
                 let type_end = image_def.type_start as usize + image_def.type_count as usize;
                 (image_def.type_start as usize..type_end)
+                    .filter(|&type_def_index| {
+                        if !class_filter_active || include_types.is_empty() {
+                            return true;
+                        }
+                        let Some(td) = metadata.type_defs.get(type_def_index) else {
+                            return false;
+                        };
+                        let full = executor.get_type_def_name(
+                            td, type_def_index, metadata, il2cpp, true, false,
+                        );
+                        crate::output::pseudo_c::type_matches(&full, include_types)
+                    })
                     .map(|type_def_index| (img_idx, type_def_index, image_name.clone()))
                     .collect::<Vec<_>>()
             })
             .collect();
+        if class_filter_active {
+            logger(&format!(
+                "Class filter: dumping {} types (of metadata)",
+                type_jobs.len()
+            ));
+        }
 
         let want_flat_disasm = config.dump_disassembly_target == 0 || config.dump_disassembly_target == 1;
         let want_split_disasm = config.dump_disassembly_target == 0 || config.dump_disassembly_target == 2;

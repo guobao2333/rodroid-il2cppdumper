@@ -491,3 +491,58 @@ mod tests {
         assert!((cfg.force_version - 24.3).abs() < f64::EPSILON);
     }
 }
+
+#[cfg(test)]
+mod tauri_wire_tests {
+    use super::*;
+
+    #[test]
+    fn tauri_ui_payload_keeps_class_picker_assemblies() {
+        // Shape dumpRunner JSON.stringify(cfg) actually sends.
+        let json = r#"{
+            "methodBodyMode": "csharp",
+            "dumpPseudoC": true,
+            "dumpDisassembly": false,
+            "csharpIncludeAssemblies": ["Assembly-CSharp.dll", "Assembly-CSharp-firstpass.dll"],
+            "csharpIncludeTypes": [],
+            "csharpTarget": 0,
+            "csharpMaxBodySize": 0,
+            "maxAssemblyInstructions": 512,
+            "forceVersion": 24.3,
+            "pseudoCEngine": "native"
+        }"#;
+        let mut cfg: Config = serde_json::from_str(json).expect("parse");
+        cfg.reconcile_method_body_mode();
+        assert_eq!(cfg.method_body_mode, MethodBodyMode::Csharp);
+        assert!(cfg.dump_pseudo_c);
+        assert_eq!(
+            cfg.dump_pseudo_c_include_assemblies,
+            vec![
+                "Assembly-CSharp.dll".to_string(),
+                "Assembly-CSharp-firstpass.dll".to_string()
+            ]
+        );
+        assert!(cfg.dump_pseudo_c_include_types.is_empty());
+    }
+
+    #[test]
+    fn stringy_numbers_do_not_drop_include_assemblies() {
+        let json = r#"{
+            "methodBodyMode": "csharp",
+            "dumpPseudoC": true,
+            "csharpIncludeAssemblies": ["Assembly-CSharp.dll"],
+            "csharpMaxBodySize": "0",
+            "maxAssemblyInstructions": "512",
+            "maxFieldRvaDumpBytes": "4096",
+            "forceVersion": "24.3",
+            "csharpTarget": "0"
+        }"#;
+        let mut cfg: Config = serde_json::from_str(json).expect("stringy parse");
+        cfg.reconcile_method_body_mode();
+        assert!(cfg.dump_pseudo_c);
+        assert_eq!(
+            cfg.dump_pseudo_c_include_assemblies,
+            vec!["Assembly-CSharp.dll".to_string()]
+        );
+    }
+}

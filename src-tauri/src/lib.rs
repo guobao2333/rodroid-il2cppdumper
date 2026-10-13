@@ -1055,33 +1055,47 @@ fn run_dump(
         };
         emit_log(app, &format!("Method body output: {mode}"));
     }
-    if !config.dump_pseudo_c_include_assemblies.is_empty() {
-        emit_log(
-            app,
-            &format!(
-                "Class filter assemblies ({}): {}",
-                config.dump_pseudo_c_include_assemblies.len(),
-                config.dump_pseudo_c_include_assemblies.join(", ")
-            ),
-        );
-    }
-    if !config.dump_pseudo_c_include_types.is_empty() {
-        let preview: Vec<_> = config
-            .dump_pseudo_c_include_types
-            .iter()
-            .take(8)
-            .cloned()
-            .collect();
-        let more = config.dump_pseudo_c_include_types.len().saturating_sub(preview.len());
-        let mut msg = format!(
-            "Class filter types ({}): {}",
-            config.dump_pseudo_c_include_types.len(),
-            preview.join(", ")
-        );
-        if more > 0 {
-            msg.push_str(&format!(" … (+{more} more)"));
+    if config.dump_pseudo_c_include_assemblies.is_empty()
+        && config.dump_pseudo_c_include_types.is_empty()
+    {
+        if config.dump_pseudo_c || config.dump_disassembly || config.il_recovery {
+            emit_log(
+                app,
+                "Class filter: none (all assemblies / types get method bodies)",
+            );
         }
-        emit_log(app, &msg);
+    } else {
+        if !config.dump_pseudo_c_include_assemblies.is_empty() {
+            emit_log(
+                app,
+                &format!(
+                    "Class filter assemblies ({}): {}",
+                    config.dump_pseudo_c_include_assemblies.len(),
+                    config.dump_pseudo_c_include_assemblies.join(", ")
+                ),
+            );
+        }
+        if !config.dump_pseudo_c_include_types.is_empty() {
+            let preview: Vec<_> = config
+                .dump_pseudo_c_include_types
+                .iter()
+                .take(8)
+                .cloned()
+                .collect();
+            let more = config
+                .dump_pseudo_c_include_types
+                .len()
+                .saturating_sub(preview.len());
+            let mut msg = format!(
+                "Class filter types ({}): {}",
+                config.dump_pseudo_c_include_types.len(),
+                preview.join(", ")
+            );
+            if more > 0 {
+                msg.push_str(&format!(" … (+{more} more)"));
+            }
+            emit_log(app, &msg);
+        }
     }
 
     let base_dir = std::path::Path::new(output_dir);
@@ -1294,8 +1308,9 @@ fn start_dump(
         let mut config: Config = match serde_json::from_str(&config_json) {
             Ok(c) => c,
             Err(e) => {
-                // Last-chance salvage: pull methodBodyMode / legacy bools out of
-                // the raw JSON so a single bad field cannot silently disable C#.
+                // Last-chance salvage: pull mode + class-picker filters out of
+                // the raw JSON so a single bad field cannot silently disable
+                // C# or wipe the assembly/type allow-list.
                 let mut salvaged = Config::default();
                 if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&config_json) {
                     if let Some(mode) = raw.get("methodBodyMode").and_then(|v| v.as_str()) {
@@ -1315,13 +1330,35 @@ fn start_dump(
                             crate::config::MethodBodyMode::from_flags(disasm, pseudo),
                         );
                     }
+                    let string_list = |key: &str| -> Vec<String> {
+                        raw.get(key)
+                            .and_then(|v| v.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    };
+                    salvaged.dump_pseudo_c_include_assemblies = string_list("csharpIncludeAssemblies");
+                    if salvaged.dump_pseudo_c_include_assemblies.is_empty() {
+                        salvaged.dump_pseudo_c_include_assemblies =
+                            string_list("dumpPseudoCIncludeAssemblies");
+                    }
+                    salvaged.dump_pseudo_c_include_types = string_list("csharpIncludeTypes");
+                    if salvaged.dump_pseudo_c_include_types.is_empty() {
+                        salvaged.dump_pseudo_c_include_types =
+                            string_list("dumpPseudoCIncludeTypes");
+                    }
                 }
                 let _ = app.emit(
                     "dump-log",
                     LogEvent {
                         message: format!(
-                            "Config JSON parse failed ({e}); salvaged methodBodyMode={:?} — check dump options",
-                            salvaged.method_body_mode
+                            "Config JSON parse failed ({e}); salvaged methodBodyMode={:?}, assemblies={}, types={} — check dump options",
+                            salvaged.method_body_mode,
+                            salvaged.dump_pseudo_c_include_assemblies.len(),
+                            salvaged.dump_pseudo_c_include_types.len(),
                         ),
                     },
                 );

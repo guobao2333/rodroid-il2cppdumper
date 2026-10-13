@@ -28,12 +28,31 @@
 
   $effect(() => {
     if ($configDialogOpen) {
-      draftConfig = { ...DEFAULT_CONFIG, ...get(config) };
+      const live = get(config);
+      // Deep-copy include lists so a later class-picker write cannot share
+      // refs with this draft — and so OK cannot clobber a fresher selection.
+      draftConfig = {
+        ...DEFAULT_CONFIG,
+        ...live,
+        csharpIncludeAssemblies: [...(live.csharpIncludeAssemblies ?? [])],
+        csharpIncludeTypes: [...(live.csharpIncludeTypes ?? [])],
+      };
     }
   });
 
   function confirmConfigDialog() {
-    config.set(normalizeDumperConfig({ ...DEFAULT_CONFIG, ...draftConfig }));
+    const live = get(config);
+    // Dump Options does not edit the class picker. Keep whatever the picker
+    // (or a previous save) last wrote into the live store, otherwise OK on a
+    // stale draft silently clears csharpIncludeAssemblies and dumps everything.
+    config.set(
+      normalizeDumperConfig({
+        ...DEFAULT_CONFIG,
+        ...draftConfig,
+        csharpIncludeAssemblies: [...(live.csharpIncludeAssemblies ?? [])],
+        csharpIncludeTypes: [...(live.csharpIncludeTypes ?? [])],
+      }),
+    );
     configDialogOpen.set(false);
   }
 
