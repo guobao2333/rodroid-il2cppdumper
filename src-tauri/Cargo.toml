@@ -10,10 +10,9 @@ name = "rodroid_il2cppdumper_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.12.3", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# Locked to exact versions to perfectly match the GitHub Actions Node API version
 tauri = { version = "2.12.3", features = [] }
 tauri-plugin-os = "2.4.0"
 tauri-plugin-opener = "2"
