@@ -111,12 +111,27 @@ function asNumber(value: unknown, fallback: number): number {
  * whole config and silently fall back to defaults (C# off).
  */
 export function normalizeDumperConfig(config: DumperConfig): DumperConfig {
+  const raw = config as DumperConfig & Record<string, unknown>;
+  // Prefer new names; fall back to legacy wire keys from older localStorage.
+  const assemblyTarget = asNumber(
+    raw.assemblyTarget ?? raw.dumpDisassemblyTarget,
+    DEFAULT_CONFIG.assemblyTarget,
+  );
+  const csharpTarget = asNumber(
+    raw.csharpTarget ?? raw.dumpPseudoCTarget,
+    DEFAULT_CONFIG.csharpTarget,
+  );
+  const csharpMaxBodySize = asNumber(
+    raw.csharpMaxBodySize ?? raw.dumpPseudoCMaxBodySize,
+    DEFAULT_CONFIG.csharpMaxBodySize,
+  );
+
   const coerced: DumperConfig = {
     ...config,
     forceVersion: asNumber(config.forceVersion, DEFAULT_CONFIG.forceVersion),
-    csharpTarget: asNumber(config.csharpTarget, DEFAULT_CONFIG.csharpTarget),
-    assemblyTarget: asNumber(config.assemblyTarget, DEFAULT_CONFIG.assemblyTarget),
-    csharpMaxBodySize: asNumber(config.csharpMaxBodySize, DEFAULT_CONFIG.csharpMaxBodySize),
+    csharpTarget,
+    assemblyTarget,
+    csharpMaxBodySize,
     maxAssemblyInstructions: asNumber(
       config.maxAssemblyInstructions,
       DEFAULT_CONFIG.maxAssemblyInstructions,
@@ -126,7 +141,19 @@ export function normalizeDumperConfig(config: DumperConfig): DumperConfig {
       DEFAULT_CONFIG.maxFieldRvaDumpBytes,
     ),
   };
-  return withMethodBodyMode(coerced, methodBodyModeOf(coerced));
+
+  // Strip legacy alias keys so JSON.stringify does not emit both
+  // `assemblyTarget` and `dumpDisassemblyTarget` — serde treats those as one
+  // field and rejects the whole Config with "duplicate field".
+  const cleaned = coerced as DumperConfig & Record<string, unknown>;
+  delete cleaned.dumpDisassemblyTarget;
+  delete cleaned.dumpPseudoCTarget;
+  delete cleaned.dumpPseudoCMaxBodySize;
+  delete cleaned.dumpPseudoCIncludeAssemblies;
+  delete cleaned.dumpPseudoCIncludeTypes;
+  delete cleaned.dumpPseudoCInteractive;
+
+  return withMethodBodyMode(cleaned, methodBodyModeOf(cleaned));
 }
 
 export interface BinaryInfo {
