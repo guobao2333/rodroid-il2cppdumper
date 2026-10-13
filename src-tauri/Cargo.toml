@@ -10,12 +10,15 @@ name = "rodroid_il2cppdumper_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.12.3", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# Locked to exact versions to perfectly match the GitHub Actions Node API version
+tauri = { version = "2.12.3", features = [] }
+tauri-plugin-os = "2.4.0"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 byteorder = "1"
@@ -29,8 +32,6 @@ iced-x86 = "1.21"
 string-interner = "0.20.0"
 fixedbitset = "0.5.7"
 include_dir = "0.7.4"
-tauri-plugin-os = "2"
-tauri-plugin-fs = "2"
 
 [profile.release]
 opt-level = 3
@@ -48,4 +49,3 @@ codegen-units = 1
 strip = true
 debug = false
 overflow-checks = false
-
