@@ -292,9 +292,9 @@ impl Il2CppDecompiler {
                 let image_name = metadata
                     .get_string_from_index(image_def.name_index)
                     .unwrap_or_else(|_| format!("Assembly-{img_idx}.dll"));
-                // Class picker: when assemblies/types are set, only those types
-                // appear in dump.cs / DiffableCs (not every stub in the game).
+                // Fast reject: no types selected and this DLL is not allow-listed.
                 if class_filter_active
+                    && include_types.is_empty()
                     && !crate::output::pseudo_c::assembly_matches(&image_name, include_assemblies)
                 {
                     return Vec::new();
@@ -302,27 +302,45 @@ impl Il2CppDecompiler {
                 let type_end = image_def.type_start as usize + image_def.type_count as usize;
                 (image_def.type_start as usize..type_end)
                     .filter(|&type_def_index| {
-                        if !class_filter_active || include_types.is_empty() {
+                        if !class_filter_active {
                             return true;
                         }
                         let Some(td) = metadata.type_defs.get(type_def_index) else {
                             return false;
                         };
-                        // Must match picker wire names (keeps `1), not dump.cs
-                        // display names (strips arity) — otherwise type-only
-                        // selections dump 0 types.
-                        let full = crate::output::pseudo_c::picker_type_name(metadata, td);
-                        crate::output::pseudo_c::type_matches(&full, include_types)
+                        let picker = crate::output::pseudo_c::picker_type_name(metadata, td);
+                        let dump_name = executor.get_type_def_name(
+                            td, type_def_index, metadata, il2cpp, true, false,
+                        );
+                        crate::output::pseudo_c::method_body_filter_allows_names(
+                            &image_name,
+                            &picker,
+                            &dump_name,
+                            include_assemblies,
+                            include_types,
+                        )
                     })
                     .map(|type_def_index| (img_idx, type_def_index, image_name.clone()))
                     .collect::<Vec<_>>()
             })
             .collect();
         if class_filter_active {
-            logger(&format!(
-                "Class filter: dumping {} types (of metadata)",
-                type_jobs.len()
-            ));
+            if type_jobs.is_empty() {
+                let preview: Vec<&str> = include_types
+                    .iter()
+                    .take(8)
+                    .map(|s| s.as_str())
+                    .collect();
+                logger(&format!(
+                    "Class filter: dumping 0 types — assemblies={:?} types_preview={:?} (no metadata name matched)",
+                    include_assemblies, preview
+                ));
+            } else {
+                logger(&format!(
+                    "Class filter: dumping {} types (of metadata)",
+                    type_jobs.len()
+                ));
+            }
         }
 
         let want_flat_disasm = config.dump_disassembly_target == 0 || config.dump_disassembly_target == 1;
@@ -781,10 +799,14 @@ impl Il2CppDecompiler {
             if assemblies.is_empty() && types.is_empty() {
                 true
             } else {
-                let full_type = crate::output::pseudo_c::picker_type_name(metadata, type_def);
-                crate::output::pseudo_c::method_body_filter_allows(
+                let picker = crate::output::pseudo_c::picker_type_name(metadata, type_def);
+                let dump_name = executor.get_type_def_name(
+                    type_def, type_def_index, metadata, il2cpp, true, false,
+                );
+                crate::output::pseudo_c::method_body_filter_allows_names(
                     image_name,
-                    &full_type,
+                    &picker,
+                    &dump_name,
                     assemblies,
                     types,
                 )

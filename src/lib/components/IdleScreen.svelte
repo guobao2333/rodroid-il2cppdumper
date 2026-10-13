@@ -21,6 +21,7 @@
     t,
   } from "$lib/stores";
   import type { BinaryInfo, TypeTreeAssembly } from "$lib/types";
+  import { methodBodyModeOf } from "$lib/types";
   import AnimatedExpand from "./AnimatedExpand.svelte";
   import PathInput from "./PathInput.svelte";
 
@@ -40,6 +41,8 @@
 
   let selectedAssemblies = $derived($config.csharpIncludeAssemblies?.length ?? 0);
   let selectedTypes = $derived($config.csharpIncludeTypes?.length ?? 0);
+  // Class filter only applies to Asm / C# method bodies.
+  let classFilterVisible = $derived(methodBodyModeOf($config) !== "off");
 
   async function loadTypeTree(path: string) {
     typeTreeLoading.set(true);
@@ -192,7 +195,7 @@
     />
   </div>
 
-  <AnimatedExpand show={!!$metadataPath}>
+  <AnimatedExpand show={!!$metadataPath && classFilterVisible}>
     <div class="m3-surface p-4 space-y-2 m3-stagger-in" style="animation-delay: 120ms">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2 min-w-0">

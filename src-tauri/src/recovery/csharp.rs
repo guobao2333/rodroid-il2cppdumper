@@ -11436,16 +11436,18 @@ pub fn decompile_methods_to_csharp(
         for tdi in image_def.type_start as usize..type_end {
             let Some(td) = metadata.type_defs.get(tdi) else { continue };
             let m_end = td.method_start as usize + td.method_count as usize;
-            if !ctx.assembly_allowed(&image_name) {
+            // Union: whole selected DLLs plus any specifically checked types.
+            let picker = crate::output::pseudo_c::picker_type_name(metadata, td);
+            let dump_name =
+                executor.get_type_def_name(td, tdi, metadata, il2cpp, true, false);
+            if !crate::output::pseudo_c::method_body_filter_allows_names(
+                &image_name,
+                &picker,
+                &dump_name,
+                &ctx.include_assemblies,
+                &include_types,
+            ) {
                 continue;
-            }
-            if !include_types.is_empty() {
-                // Same name the GUI picker stores (`Namespace.Name`1`), not
-                // get_type_def_name (strips arity) — type-only filters must hit.
-                let full_type = crate::output::pseudo_c::picker_type_name(metadata, td);
-                if !crate::output::pseudo_c::type_matches(&full_type, &include_types) {
-                    continue;
-                }
             }
             for mi in td.method_start as usize..m_end {
                 let Some(md) = metadata.method_defs.get(mi) else { continue };

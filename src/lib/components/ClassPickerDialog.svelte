@@ -97,11 +97,13 @@
     writeSelection([...next], [...selectedTypes]);
   }
 
-  function toggleType(name: string) {
-    const next = new Set(selectedTypes);
-    if (next.has(name)) next.delete(name);
-    else next.add(name);
-    writeSelection([...selectedAssemblies], [...next]);
+  function toggleType(_assembly: string, name: string) {
+    const nextTypes = new Set(selectedTypes);
+    if (nextTypes.has(name)) nextTypes.delete(name);
+    else nextTypes.add(name);
+    // Do not auto-check the parent DLL: checked assemblies mean "whole DLL",
+    // checked types mean those extras — engine unions both lists.
+    writeSelection([...selectedAssemblies], [...nextTypes]);
   }
 
   function presetAll() {
@@ -199,7 +201,7 @@
                           type="checkbox"
                           class="mt-1 size-4 accent-[var(--md-sys-color-primary)]"
                           checked={selectedTypes.has(ty.fullName)}
-                          onchange={() => toggleType(ty.fullName)}
+                          onchange={() => toggleType(asm.assembly, ty.fullName)}
                         />
                         <span class="min-w-0">
                           <span class="block text-sm break-all">{ty.fullName}</span>

@@ -9,7 +9,7 @@
     config, configDialogOpen, classPickerOpen, currentScreen, themeMode, applyTheme, t, crashLog, resetAll,
     outputDir, defaultOutputDir, typeTree, typeTreeLoading, typeTreeError,
   } from "$lib/stores";
-  import { DEFAULT_CONFIG, normalizeDumperConfig, type DumperConfig } from "$lib/types";
+  import { DEFAULT_CONFIG, methodBodyModeOf, normalizeDumperConfig, type DumperConfig } from "$lib/types";
   import ConfigDialog from "$lib/components/ConfigDialog.svelte";
   import ClassPickerDialog from "$lib/components/ClassPickerDialog.svelte";
   import IdleScreen from "$lib/components/IdleScreen.svelte";
@@ -37,6 +37,12 @@
         csharpIncludeAssemblies: [...(live.csharpIncludeAssemblies ?? [])],
         csharpIncludeTypes: [...(live.csharpIncludeTypes ?? [])],
       };
+    }
+  });
+
+  $effect(() => {
+    if (methodBodyModeOf($config) === "off" && $classPickerOpen) {
+      classPickerOpen.set(false);
     }
   });
 
@@ -177,7 +183,7 @@
   {#if $configDialogOpen}
     <ConfigDialog bind:config={draftConfig} onconfirm={confirmConfigDialog} oncancel={cancelConfigDialog} />
   {/if}
-  {#if $classPickerOpen}
+  {#if $classPickerOpen && methodBodyModeOf($config) !== "off"}
     <ClassPickerDialog
       typeTree={$typeTree}
       loading={$typeTreeLoading}
