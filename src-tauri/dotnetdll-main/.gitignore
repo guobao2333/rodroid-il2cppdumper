@@ -1,0 +1,10 @@
+/target
+Cargo.lock
+*.dll
+*.runtimeconfig.json
+
+.idea
+
+# AI guidelines
+.junie
+TESTING.md

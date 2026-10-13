@@ -1,0 +1,51 @@
+[package]
+name = "rodroid-il2cppdumper"
+version = "8.0.0"
+description = "Rodroid IL2CPP Dumper - Desktop"
+authors = ["rodroid"]
+edition = "2024"
+
+[lib]
+name = "rodroid_il2cppdumper_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+byteorder = "1"
+dotnetdll = { path = "dotnetdll-main" }
+lz4_flex = "0.11"
+rayon = "1.11.0"
+thiserror = "2"
+yaxpeax-arm = "0.4"
+yaxpeax-arch = "0.3"
+iced-x86 = "1.21"
+string-interner = "0.20.0"
+fixedbitset = "0.5.7"
+include_dir = "0.7.4"
+tauri-plugin-os = "2"
+tauri-plugin-fs = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+debug = false
+overflow-checks = false
+incremental = false
+
+[profile.release.package."*"]
+opt-level = 3
+codegen-units = 1
+strip = true
+debug = false
+overflow-checks = false
+

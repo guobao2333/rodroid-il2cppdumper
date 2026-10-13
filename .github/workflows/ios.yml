@@ -1,0 +1,273 @@
+name: "iOS Release"
+
+# iOS CI notes:
+# - macos-latest currently ships Xcode 26.x which breaks Tauri iOS link
+#   (undefined __swift_FORCE_LOAD_$_swiftCompatibility56 / Concurrency).
+#   Pin Xcode 16.x until Tauri deps fully support Xcode 26.
+# - Artifacts are staged under ios-artifacts/ then uploaded.
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    permissions:
+      contents: write
+      actions: write
+    # Prefer macos-15 + Xcode 16 over macos-latest (Xcode 26)
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16 (avoid Xcode 26 Swift compat link errors)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          # 16.4 is widely available on macos-15 runners; fall back handled below
+          xcode-version: "16.4"
+
+      - name: Show Xcode / SDK
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcode-select -p
+          # If 16.4 action failed somehow, try common paths
+          if ! xcodebuild -version | grep -qE "Xcode 1[56]"; then
+            echo "Unexpected Xcode; listing /Applications:"
+            ls /Applications | grep -i xcode || true
+            for p in \
+              /Applications/Xcode_16.4.app \
+              /Applications/Xcode_16.3.app \
+              /Applications/Xcode_16.2.app \
+              /Applications/Xcode_16.1.app \
+              /Applications/Xcode_16.0.app \
+              /Applications/Xcode_15.4.app
+            do
+              if [ -d "$p" ]; then
+                echo "Selecting $p"
+                sudo xcode-select -s "$p"
+                break
+              fi
+            done
+            xcodebuild -version
+          fi
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Initialize iOS & Inject Permissions
+        env:
+          CI: true
+        run: |
+          set -euo pipefail
+          if [ ! -d "src-tauri/gen/apple" ]; then
+            npx tauri ios init --ci
+          fi
+
+          npx tauri add os || true
+
+          PLIST=$(find src-tauri/gen/apple -path "*_iOS/Info.plist" 2>/dev/null | head -n 1)
+          if [ -n "$PLIST" ] && [ -f "$PLIST" ]; then
+            plutil -replace UIFileSharingEnabled -bool YES "$PLIST" 2>/dev/null \
+              || plutil -insert UIFileSharingEnabled -bool YES "$PLIST"
+            plutil -replace LSSupportsOpeningDocumentsInPlace -bool YES "$PLIST" 2>/dev/null \
+              || plutil -insert LSSupportsOpeningDocumentsInPlace -bool YES "$PLIST"
+            echo "Injected file sharing permissions into $PLIST"
+          else
+            echo "WARNING: Info.plist not found under gen/apple"
+            find src-tauri/gen/apple -maxdepth 3 -type f 2>/dev/null || true
+          fi
+
+      - name: Disable Xcode Code Signing in project
+        run: |
+          python3 << 'PYEOF'
+          import glob, re
+
+          for pbx in glob.glob("src-tauri/gen/apple/*.xcodeproj/project.pbxproj"):
+              with open(pbx, "r") as f:
+                  data = f.read()
+
+              data = data.replace("CODE_SIGN_STYLE = Automatic;", "CODE_SIGN_STYLE = Manual;")
+
+              if "CODE_SIGNING_ALLOWED = NO;" not in data:
+                  inject = (
+                      'buildSettings = {\n'
+                      '\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n'
+                      '\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n'
+                      '\t\t\t\tCODE_SIGN_IDENTITY = "";\n'
+                      '\t\t\t\tDEVELOPMENT_TEAM = "";'
+                  )
+                  data = data.replace("buildSettings = {", inject)
+
+              data = re.sub(
+                  r'DEVELOPMENT_TEAM = "[^"]*";',
+                  'DEVELOPMENT_TEAM = "";',
+                  data,
+              )
+
+              with open(pbx, "w") as f:
+                  f.write(data)
+              print(f"Patched {pbx}")
+          PYEOF
+
+      - name: Build iOS (Device - aarch64)
+        env:
+          CI: true
+        run: |
+          set -uo pipefail
+          mkdir -p ios-artifacts
+
+          # Device export often needs a team; we still try and then harvest .app
+          npx tauri ios build --target aarch64 --ci -v || true
+
+          echo "=== Products under gen/apple ==="
+          find src-tauri/gen/apple -maxdepth 6 \( -name "*.ipa" -o -name "*.app" -o -name "*.xcarchive" \) 2>/dev/null || true
+
+          echo "=== Products under DerivedData ==="
+          find ~/Library/Developer/Xcode/DerivedData -path "*release-iphoneos*.app" -type d 2>/dev/null | head -n 20 || true
+
+          # Collect any IPA Tauri produced
+          while IFS= read -r -d '' ipa; do
+            echo "Found IPA: $ipa"
+            cp -f "$ipa" "ios-artifacts/$(basename "$ipa")"
+            cp -f "$ipa" "ios-artifacts/Rodroid_IL2CPPDumper_iOS_unsigned.ipa"
+          done < <(find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData -name "*.ipa" -type f -print0 2>/dev/null)
+
+          # Pack .app into unsigned IPA
+          if [ ! -f ios-artifacts/Rodroid_IL2CPPDumper_iOS_unsigned.ipa ]; then
+            ARCHIVE_APP=$(find src-tauri/gen/apple -path "*.xcarchive/Products/Applications/*.app" -type d 2>/dev/null | head -n 1)
+            if [ -z "$ARCHIVE_APP" ]; then
+              ARCHIVE_APP=$(find ~/Library/Developer/Xcode/DerivedData -type d -path "*release-iphoneos/*.app" 2>/dev/null | head -n 1)
+            fi
+            if [ -z "$ARCHIVE_APP" ]; then
+              ARCHIVE_APP=$(find src-tauri/gen/apple -name "*.app" -type d 2>/dev/null | grep -vi sim | head -n 1)
+            fi
+            if [ -n "$ARCHIVE_APP" ]; then
+              echo "Packing device .app into IPA from: $ARCHIVE_APP"
+              rm -rf Payload
+              mkdir -p Payload
+              cp -R "$ARCHIVE_APP" Payload/
+              zip -qr ios-artifacts/Rodroid_IL2CPPDumper_iOS_unsigned.ipa Payload
+              rm -rf Payload
+              echo "Device IPA created"
+            else
+              echo "WARNING: No device .app / .ipa found after aarch64 build"
+            fi
+          fi
+
+          ls -lah ios-artifacts || true
+
+      - name: Build iOS (Simulator - aarch64-sim)
+        env:
+          CI: true
+        run: |
+          set -uo pipefail
+          mkdir -p ios-artifacts
+
+          npx tauri ios build --target aarch64-sim --ci -v || true
+
+          echo "=== Simulator products ==="
+          find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData \
+            -type d \( -path "*iphonesimulator*.app" -o -name "*.app" \) 2>/dev/null | head -n 30 || true
+
+          SIM_APP=$(find ~/Library/Developer/Xcode/DerivedData -type d -path "*iphonesimulator*.app" 2>/dev/null | head -n 1)
+          if [ -z "$SIM_APP" ]; then
+            SIM_APP=$(find src-tauri/gen/apple -type d -path "*iphonesimulator*" -name "*.app" 2>/dev/null | head -n 1)
+          fi
+          if [ -z "$SIM_APP" ]; then
+            SIM_APP=$(find src-tauri/gen/apple -path "*.xcarchive/Products/Applications/*.app" -type d 2>/dev/null | head -n 1)
+          fi
+          if [ -z "$SIM_APP" ]; then
+            SIM_APP=$(find src-tauri/gen/apple -name "*.app" -type d 2>/dev/null | head -n 1)
+          fi
+
+          if [ -n "$SIM_APP" ]; then
+            echo "Found simulator .app at: $SIM_APP"
+            (
+              cd "$(dirname "$SIM_APP")"
+              zip -qr "$GITHUB_WORKSPACE/ios-artifacts/Rodroid_IL2CPPDumper_iOS_Simulator.zip" "$(basename "$SIM_APP")"
+            )
+            echo "Simulator zip created"
+          else
+            echo "WARNING: No simulator .app found"
+          fi
+
+          ls -lah ios-artifacts || true
+
+      - name: Stage artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p ios-artifacts
+
+          find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData \
+            -type f \( -name "*.ipa" -o -name "*.zip" \) 2>/dev/null | while read -r f; do
+            echo "Staging $f"
+            cp -f "$f" "ios-artifacts/$(basename "$f")" || true
+          done
+
+          if [ -z "$(ls -A ios-artifacts 2>/dev/null || true)" ]; then
+            echo "ios-artifacts empty — zipping any remaining .app"
+            find src-tauri/gen/apple ~/Library/Developer/Xcode/DerivedData \
+              -name "*.app" -type d 2>/dev/null | head -n 5 | while read -r app; do
+              base=$(basename "$app" .app | tr ' ' '_')
+              (
+                cd "$(dirname "$app")"
+                zip -qr "$GITHUB_WORKSPACE/ios-artifacts/${base}.zip" "$(basename "$app")"
+              ) || true
+            done
+          fi
+
+          echo "=== Final ios-artifacts ==="
+          ls -lah ios-artifacts || true
+          if [ -z "$(ls -A ios-artifacts 2>/dev/null || true)" ]; then
+            echo "::error::No iOS artifacts were produced. Likely Xcode/toolchain link failure — check build logs."
+            exit 1
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-Builds
+          path: ios-artifacts/*
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload to Release (tag runs)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          echo "Uploading artifacts to release tag: $TAG"
+
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Creating release $TAG..."
+            gh release create "$TAG" \
+              --title "Rodroid IL2CPP Dumper $TAG" \
+              --notes "iOS build artifacts for $TAG" \
+              --draft || true
+          fi
+
+          shopt -s nullglob
+          files=(ios-artifacts/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No files in ios-artifacts to upload to release"
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber
+          echo "Uploaded: ${files[*]}"

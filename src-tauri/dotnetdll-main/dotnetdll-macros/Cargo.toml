@@ -1,0 +1,23 @@
+[package]
+name = "dotnetdll-macros"
+version = "0.1.0"
+authors = ["Nick Clifford <nick@nickclifford.me>"]
+edition = "2024"
+rust-version = "1.85.1"
+repository = "https://github.com/nickbclifford/dotnetdll"
+license = "GPL-3.0+"
+keywords = ["c-sharp", "dotnet", "dll", "compiler", "parser"]
+categories = ["development-tools::ffi"]
+description = "Support crate for dotnetdll."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.27"
+# TODO: update to syn v2
+syn = { version = "1", features = ["full"] }
+quote = "1"
+heck = "0.5"

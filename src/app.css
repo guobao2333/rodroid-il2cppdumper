@@ -1,0 +1,406 @@
+@import 'tailwindcss';
+
+:root {
+	--app-accent: var(--np-color-tertiary);
+	--app-accent-container: var(--np-color-tertiary-container);
+	--app-on-accent: var(--np-color-on-tertiary-container);
+	--app-success: var(--np-color-tertiary);
+	--app-warning: var(--np-color-secondary);
+}
+
+html,
+body {
+	height: 100%;
+	overflow: hidden;
+	-webkit-font-smoothing: antialiased;
+	user-select: none;
+}
+
+body {
+	background-color: var(--np-color-background);
+	color: var(--np-color-on-background);
+	font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+}
+
+input,
+textarea,
+pre {
+	user-select: text;
+}
+
+::-webkit-scrollbar {
+	width: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: var(--np-color-outline-variant);
+	border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--np-color-outline);
+}
+
+.m3-app {
+	background: var(--np-color-background);
+	color: var(--np-color-on-background);
+}
+
+.m3-top-bar {
+	border-bottom: 1px solid var(--np-color-outline-variant);
+	background: var(--np-color-surface);
+}
+
+.m3-surface {
+	background: var(--np-color-surface-container-low);
+	border: 1px solid var(--np-color-outline-variant);
+	border-radius: 16px;
+}
+
+.m3-surface-high {
+	background: var(--np-color-surface-container-high);
+	border: 1px solid var(--np-color-outline-variant);
+	border-radius: 16px;
+}
+
+.m3-label {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--np-color-primary);
+}
+
+.m3-secondary {
+	color: var(--np-color-on-surface-variant);
+}
+
+.m3-dialog-scrim {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	background: color-mix(in srgb, var(--np-color-scrim) 55%, transparent);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+
+.m3-dialog {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	max-width: 32rem;
+	max-height: 85vh;
+	overflow: hidden;
+	background: var(--np-color-surface-container-high);
+	border-radius: 28px;
+	box-shadow: var(--np-elevation-3);
+}
+
+.m3-log-panel {
+	background: var(--np-color-surface-container-highest);
+	border-radius: 12px;
+}
+
+.m3-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding: 0.2rem 0.625rem;
+	border-radius: 999px;
+	font-size: 0.6875rem;
+	font-weight: 600;
+}
+
+.m3-badge-primary {
+	background: var(--np-color-primary-container);
+	color: var(--np-color-on-primary-container);
+}
+
+.m3-badge-tertiary {
+	background: var(--np-color-tertiary-container);
+	color: var(--np-color-on-tertiary-container);
+}
+
+.m3-badge-error {
+	background: var(--np-color-error-container);
+	color: var(--np-color-on-error-container);
+}
+
+.m3-badge-muted {
+	background: var(--np-color-surface-container-highest);
+	color: var(--np-color-on-surface-variant);
+}
+
+.m3-icon-tile {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	flex-shrink: 0;
+	background: var(--np-color-primary-container);
+	color: var(--np-color-on-primary-container);
+	border-radius: 12px;
+}
+
+.m3-icon-tile :global(.np-icon) {
+	font-size: 1.125rem;
+	line-height: 1;
+}
+
+.m3-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+}
+
+.m3-segmented-inline :global(.np-segmented-buttons) {
+	width: fit-content;
+	max-width: 100%;
+	display: inline-grid;
+	grid-auto-flow: column;
+}
+
+/* Full-width path input (native — noph TextField stays inline-sized) */
+.m3-path-input {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+	min-height: 3.25rem;
+	padding: 0 0.875rem;
+	border: 1px solid var(--np-color-outline);
+	border-radius: 12px;
+	background: var(--np-color-surface-container-highest);
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.m3-path-input:focus-within {
+	border-color: var(--np-color-primary);
+	box-shadow: 0 0 0 1px var(--np-color-primary);
+}
+
+.m3-path-input-field {
+	flex: 1;
+	min-width: 0;
+	width: 100%;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--np-color-on-surface);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.8125rem;
+	line-height: 1.25rem;
+	overflow-x: auto;
+	white-space: nowrap;
+	scrollbar-width: thin;
+}
+
+.m3-path-input-field::placeholder {
+	color: var(--np-color-on-surface-variant);
+	opacity: 0.7;
+}
+
+.m3-path-input-check {
+	flex-shrink: 0;
+	color: var(--np-color-primary);
+	display: flex;
+	align-items: center;
+}
+
+.m3-path-field :global(.text-field) {
+	display: flex;
+	width: 100%;
+	resize: none;
+}
+
+.m3-config-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.25rem 0;
+}
+
+.m3-config-switch {
+	flex-shrink: 0;
+	padding-inline-end: 0.125rem;
+}
+
+/* Start Dump — matches Android IdleScreen: fillMaxWidth, 56dp, 16dp corners */
+.m3-start-dump {
+	box-sizing: border-box;
+	width: 100%;
+	height: 3.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border: none;
+	border-radius: 16px;
+	padding: 0 1.5rem;
+	font: inherit;
+	font-size: 1rem;
+	font-weight: 500;
+	line-height: 1.5rem;
+	letter-spacing: 0.009375rem;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	background-color: var(--np-filled-button-container-color, var(--np-color-primary));
+	color: var(--np-filled-button-label-text-color, var(--np-color-on-primary));
+	transition:
+		background-color var(--np-motion-expressive-default-effects),
+		box-shadow var(--np-motion-expressive-default-effects);
+}
+
+.m3-start-dump:disabled {
+	cursor: not-allowed;
+	background-color: color-mix(in srgb, var(--np-color-on-surface) 12%, transparent);
+	color: color-mix(in srgb, var(--np-color-on-surface) 38%, transparent);
+}
+
+@media (hover: hover) {
+	.m3-start-dump:not(:disabled):hover {
+		box-shadow: var(
+			--np-elevation-1,
+			0 1px 2px 0 rgb(0 0 0 / 0.6),
+			0 0px 0px -1px rgb(0 0 0 / 0.6)
+		);
+	}
+}
+
+.m3-start-dump:not(:disabled):active {
+	box-shadow: none;
+}
+
+.m3-start-dump:focus-visible {
+	outline: 3px solid var(--np-color-secondary);
+	outline-offset: 2px;
+}
+
+.m3-start-dump--error {
+	background-color: var(--np-color-error);
+	color: var(--np-color-on-error);
+}
+
+.m3-start-dump--tonal {
+	background-color: var(--np-color-secondary-container);
+	color: var(--np-color-on-secondary-container);
+}
+
+.m3-start-dump--success {
+	background-color: var(--np-color-tertiary);
+	color: var(--np-color-on-tertiary);
+}
+
+.m3-error-detail {
+	padding: 0.625rem 1rem;
+	border-radius: 12px;
+	text-align: center;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	background: var(--np-color-surface-container-high);
+	color: var(--np-color-on-surface);
+	border: 1px solid color-mix(in srgb, var(--np-color-error) 35%, transparent);
+}
+
+@keyframes slide-up {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-slide-up {
+	animation: slide-up 0.3s var(--np-motion-standard-fast-effects, ease-out);
+}
+
+/* Compose-style expand/collapse (AnimatedVisibility) */
+.m3-collapsible {
+	display: grid;
+	grid-template-rows: 0fr;
+	opacity: 0;
+	transition:
+		grid-template-rows var(--np-motion-standard-default-spatial, 500ms cubic-bezier(0.27, 1.06, 0.18, 1)),
+		opacity var(--np-motion-standard-fast-effects, 350ms ease);
+}
+
+.m3-collapsible.open {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+
+.m3-collapsible-inner {
+	overflow: hidden;
+	min-height: 0;
+}
+
+.m3-collapsible.open > .m3-collapsible-inner {
+	overflow: visible;
+}
+
+.m3-nested-options {
+	padding-left: 1rem;
+	padding-right: 0.5rem;
+	margin-top: 0.25rem;
+	border-left: 2px solid var(--np-color-primary-container);
+}
+
+/* Prevent switch thumb from being clipped when selected (scale + translateX) */
+.m3-nested-options .m3-config-switch {
+	padding-inline-end: 0.375rem;
+}
+
+.m3-dialog-enter {
+	animation: dialog-enter var(--np-motion-standard-default-spatial, 500ms cubic-bezier(0.27, 1.06, 0.18, 1));
+}
+
+.m3-scrim-enter {
+	animation: scrim-enter var(--np-motion-standard-fast-effects, 350ms ease);
+}
+
+@keyframes dialog-enter {
+	from {
+		opacity: 0;
+		transform: translateY(24px) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes scrim-enter {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.m3-stagger-in {
+	animation: stagger-in var(--np-motion-standard-default-spatial, 500ms cubic-bezier(0.27, 1.06, 0.18, 1)) both;
+}
+
+@keyframes stagger-in {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

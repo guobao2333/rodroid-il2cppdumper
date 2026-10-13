@@ -1,0 +1,57 @@
+name: Initialize iOS (Run Once)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  init-ios:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios, x86_64-apple-ios, aarch64-apple-ios-sim
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Initialize Tauri iOS Template
+        run: |
+          npm run tauri add os
+          npm run tauri ios init
+
+      - name: Configure Info.plist for File Sharing
+        run: |
+          PLIST=$(find src-tauri/gen/apple -path "*_iOS/Info.plist" | head -n 1)
+          if [ -n "$PLIST" ] && [ -f "$PLIST" ]; then
+            echo "Found Info.plist at: $PLIST"
+            plutil -insert UIFileSharingEnabled -bool YES "$PLIST"
+            plutil -insert LSSupportsOpeningDocumentsInPlace -bool YES "$PLIST"
+            echo "Successfully updated Info.plist"
+          else
+            echo "Info.plist not found!"
+            find src-tauri/gen/apple
+            exit 1
+          fi
+
+      - name: Commit iOS environment to repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git add src-tauri/Cargo.toml
+          git add src-tauri/capabilities/
+          git add src-tauri/gen/apple/
+          git commit -m "chore: scaffold iOS environment and configure permissions"
+          git push
