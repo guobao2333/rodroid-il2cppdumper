@@ -11,7 +11,7 @@ import {
   metadataPath,
   outputDir,
 } from "$lib/stores";
-import type { DumperConfig } from "$lib/types";
+import { normalizeDumperConfig, type DumperConfig } from "$lib/types";
 import { setDumpInProgress, isDumpInProgress } from "$lib/dumpState";
 import { setupDumpEvents } from "$lib/dumpEvents";
 
@@ -30,7 +30,7 @@ export async function beginDump(): Promise<void> {
   appState.set("dumping");
   currentScreen.set("dumping");
 
-  const cfg: DumperConfig = get(config);
+  const cfg = normalizeDumperConfig(get(config));
   const outDir = get(outputDir);
   // Engine wire format uses methodBodyMode only; omit legacy mode bools.
   const { dumpDisassembly: _disasm, dumpPseudoC: _pseudo, ...engineCfg } = cfg;

@@ -1,6 +1,6 @@
 import { writable, derived } from "svelte/store";
 import type { AppState, DumperConfig, BinaryInfo, TypeTreeAssembly } from "./types";
-import { DEFAULT_CONFIG } from "./types";
+import { DEFAULT_CONFIG, normalizeDumperConfig } from "./types";
 import { type AppLanguage, type ThemeMode, getTranslations } from "./i18n";
 import { setDumpInProgress } from "./dumpState";
 
@@ -24,7 +24,7 @@ function loadPrefs(): PersistedPrefs {
       return {
         ...defaults,
         ...parsed,
-        config: { ...DEFAULT_CONFIG, ...parsed.config },
+        config: normalizeDumperConfig({ ...DEFAULT_CONFIG, ...parsed.config }),
       };
     }
   } catch {}
@@ -45,21 +45,7 @@ function savePrefs(prefs: Partial<PersistedPrefs>) {
     const current = loadPrefs();
     const next = { ...current, ...prefs };
     if (next.config) {
-      // Persist methodBodyMode as the source of truth; derive legacy bools for UI.
-      // Asm and C# are mutually exclusive — never persist "both".
-      const raw = (next.config.methodBodyMode || "off").toLowerCase();
-      const mode =
-        raw === "assembly" || raw === "asm" || raw === "disassembly" || raw === "disasm"
-          ? "assembly"
-          : raw === "csharp" || raw === "c#" || raw === "cs" || raw === "pseudo"
-            ? "csharp"
-            : "off";
-      next.config = {
-        ...next.config,
-        methodBodyMode: mode,
-        dumpDisassembly: mode === "assembly",
-        dumpPseudoC: mode === "csharp",
-      };
+      next.config = normalizeDumperConfig(next.config);
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {}

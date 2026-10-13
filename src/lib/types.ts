@@ -96,6 +96,11 @@ export function withMethodBodyMode(config: DumperConfig, mode: MethodBodyMode): 
   }
 }
 
+/** Keep `methodBodyMode` and legacy bools aligned (UI may show C# from bools alone). */
+export function normalizeDumperConfig(config: DumperConfig): DumperConfig {
+  return withMethodBodyMode(config, methodBodyModeOf(config));
+}
+
 export interface BinaryInfo {
   format: string;
   unity_version: string;

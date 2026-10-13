@@ -9,7 +9,7 @@
     config, configDialogOpen, classPickerOpen, currentScreen, themeMode, applyTheme, t, crashLog, resetAll,
     outputDir, defaultOutputDir, typeTree, typeTreeLoading, typeTreeError,
   } from "$lib/stores";
-  import { DEFAULT_CONFIG, type DumperConfig } from "$lib/types";
+  import { DEFAULT_CONFIG, normalizeDumperConfig, type DumperConfig } from "$lib/types";
   import ConfigDialog from "$lib/components/ConfigDialog.svelte";
   import ClassPickerDialog from "$lib/components/ClassPickerDialog.svelte";
   import IdleScreen from "$lib/components/IdleScreen.svelte";
@@ -33,7 +33,7 @@
   });
 
   function confirmConfigDialog() {
-    config.set({ ...DEFAULT_CONFIG, ...draftConfig });
+    config.set(normalizeDumperConfig({ ...DEFAULT_CONFIG, ...draftConfig }));
     configDialogOpen.set(false);
   }
 
