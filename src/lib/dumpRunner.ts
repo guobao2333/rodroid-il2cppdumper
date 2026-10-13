@@ -31,16 +31,19 @@ export async function beginDump(): Promise<void> {
   currentScreen.set("dumping");
 
   const cfg = normalizeDumperConfig(get(config));
+  // Persist the normalized shape so localStorage cannot keep stringy numbers /
+  // a stale methodBodyMode that the dialog looked like it had applied.
+  config.set(cfg);
   const outDir = get(outputDir);
-  // Engine wire format uses methodBodyMode only; omit legacy mode bools.
-  const { dumpDisassembly: _disasm, dumpPseudoC: _pseudo, ...engineCfg } = cfg;
 
   try {
     await invoke("start_dump", {
       binaryPath: bp,
       metadataPath: mp,
       outputDir: outDir,
-      configJson: JSON.stringify(engineCfg),
+      // Send mode + legacy bools. Rust skips serializing the bools on save, but
+      // still deserializes them — keeps C#/Asm on even if one field mismatches.
+      configJson: JSON.stringify(cfg),
     });
   } catch (e) {
     setDumpInProgress(false);

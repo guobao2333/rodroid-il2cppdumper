@@ -3,7 +3,7 @@
   <img src="https://img.shields.io/badge/SvelteKit-FF3E00?style=for-the-badge&logo=svelte&logoColor=white" />
   <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge" />
 </p>
 
 <h1 align="center">🛡️ Rodroid Il2CppDumper — Desktop & Mobile GUI</h1>
@@ -229,7 +229,7 @@ The backend wraps the [`il2cpp_dumper`](../il2cpp_dumper) Rust crate as a librar
 
 ## 📜 License
 
-MIT
+GNU GPLv3
 
 ---
 

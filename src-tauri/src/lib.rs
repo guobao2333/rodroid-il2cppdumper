@@ -1291,7 +1291,43 @@ fn start_dump(
         }
         let _guard = DumpGuard(Arc::clone(&state));
 
-        let mut config: Config = serde_json::from_str(&config_json).unwrap_or_default();
+        let mut config: Config = match serde_json::from_str(&config_json) {
+            Ok(c) => c,
+            Err(e) => {
+                // Last-chance salvage: pull methodBodyMode / legacy bools out of
+                // the raw JSON so a single bad field cannot silently disable C#.
+                let mut salvaged = Config::default();
+                if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&config_json) {
+                    if let Some(mode) = raw.get("methodBodyMode").and_then(|v| v.as_str()) {
+                        if let Some(m) = crate::config::MethodBodyMode::parse(mode) {
+                            salvaged.set_method_body_mode(m);
+                        }
+                    } else {
+                        let pseudo = raw
+                            .get("dumpPseudoC")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        let disasm = raw
+                            .get("dumpDisassembly")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        salvaged.set_method_body_mode(
+                            crate::config::MethodBodyMode::from_flags(disasm, pseudo),
+                        );
+                    }
+                }
+                let _ = app.emit(
+                    "dump-log",
+                    LogEvent {
+                        message: format!(
+                            "Config JSON parse failed ({e}); salvaged methodBodyMode={:?} — check dump options",
+                            salvaged.method_body_mode
+                        ),
+                    },
+                );
+                salvaged
+            }
+        };
         config.reconcile_method_body_mode();
         let app_for_panic = app.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

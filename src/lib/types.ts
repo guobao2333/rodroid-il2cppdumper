@@ -96,9 +96,37 @@ export function withMethodBodyMode(config: DumperConfig, mode: MethodBodyMode): 
   }
 }
 
-/** Keep `methodBodyMode` and legacy bools aligned (UI may show C# from bools alone). */
+function asNumber(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+/**
+ * Keep `methodBodyMode` and legacy bools aligned, and coerce TextField number
+ * binds (often strings) back to real numbers so Rust serde does not reject the
+ * whole config and silently fall back to defaults (C# off).
+ */
 export function normalizeDumperConfig(config: DumperConfig): DumperConfig {
-  return withMethodBodyMode(config, methodBodyModeOf(config));
+  const coerced: DumperConfig = {
+    ...config,
+    forceVersion: asNumber(config.forceVersion, DEFAULT_CONFIG.forceVersion),
+    csharpTarget: asNumber(config.csharpTarget, DEFAULT_CONFIG.csharpTarget),
+    assemblyTarget: asNumber(config.assemblyTarget, DEFAULT_CONFIG.assemblyTarget),
+    csharpMaxBodySize: asNumber(config.csharpMaxBodySize, DEFAULT_CONFIG.csharpMaxBodySize),
+    maxAssemblyInstructions: asNumber(
+      config.maxAssemblyInstructions,
+      DEFAULT_CONFIG.maxAssemblyInstructions,
+    ),
+    maxFieldRvaDumpBytes: asNumber(
+      config.maxFieldRvaDumpBytes,
+      DEFAULT_CONFIG.maxFieldRvaDumpBytes,
+    ),
+  };
+  return withMethodBodyMode(coerced, methodBodyModeOf(coerced));
 }
 
 export interface BinaryInfo {
