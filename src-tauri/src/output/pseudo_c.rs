@@ -259,20 +259,67 @@ pub fn assembly_matches(image_name: &str, include_assemblies: &[String]) -> bool
     })
 }
 
+/// Same naming the GUI class picker stores (`list_metadata_type_tree`):
+/// `Namespace.Name` or bare `Name`, **including** IL generic arity (`` `1 ``).
+/// Filters must use this — not `get_type_def_name` (which strips `` `N ``) —
+/// or a type-only selection matches nothing and the dump emits 0 types.
+pub fn picker_type_name(
+    metadata: &Metadata,
+    type_def: &crate::il2cpp::structures::Il2CppTypeDefinition,
+) -> String {
+    let name = metadata
+        .get_string_from_index(type_def.name_index)
+        .unwrap_or_default();
+    let namespace = metadata
+        .get_string_from_index(type_def.namespace_index)
+        .unwrap_or_default();
+    if namespace.is_empty() {
+        name
+    } else {
+        format!("{namespace}.{name}")
+    }
+}
+
+/// Strip `` `N `` arity markers from each dotted segment so picker names
+/// (`Foo.Bar`1`) still match dump.cs style names (`Foo.Bar`).
+fn strip_generic_arity(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for (i, part) in s.split('.').enumerate() {
+        if i > 0 {
+            out.push('.');
+        }
+        if let Some(idx) = part.find('`') {
+            out.push_str(&part[..idx]);
+        } else {
+            out.push_str(part);
+        }
+    }
+    out
+}
+
 /// Does `full_type` match any of the `include_types` entries? An entry is
-/// either an exact full type name (`Namespace.Type`) or a namespace/type
-/// prefix (`Namespace` matches every `Namespace.*` type; a nested type is
-/// matched through its declaring type prefix). Trailing dots are tolerated.
-///
-/// The comparison runs against `get_type_def_name(.., add_namespace = true)`, so
-/// the strings the user writes match the names `dump.cs` prints.
+/// either an exact full type name (`Namespace.Type` / `Namespace.Type`1`) or a
+/// namespace/type prefix (`Namespace` matches every `Namespace.*` type).
+/// Trailing dots are tolerated. Generic arity is ignored for comparison so
+/// picker strings and `get_type_def_name` strings both work.
 pub fn type_matches(full_type: &str, include_types: &[String]) -> bool {
     if include_types.is_empty() {
         return true;
     }
+    let full = full_type.trim();
+    let full_norm = strip_generic_arity(full);
     include_types.iter().any(|entry| {
-        let entry = entry.trim_end_matches('.');
-        full_type == entry || full_type.starts_with(&format!("{entry}."))
+        let entry = entry.trim().trim_end_matches('.');
+        if entry.is_empty() {
+            return false;
+        }
+        let entry_norm = strip_generic_arity(entry);
+        full == entry
+            || full_norm == entry_norm
+            || full == entry_norm
+            || full_norm == entry
+            || full.starts_with(&format!("{entry}."))
+            || full_norm.starts_with(&format!("{entry_norm}."))
     })
 }
 
@@ -286,4 +333,19 @@ pub fn method_body_filter_allows(
 ) -> bool {
     assembly_matches(image_name, include_assemblies)
         && type_matches(full_type, include_types)
+}
+
+#[cfg(test)]
+mod filter_tests {
+    use super::*;
+
+    #[test]
+    fn type_filter_accepts_picker_generic_names() {
+        // Picker stores `Foo.Bar`1`; dump.cs style is `Foo.Bar`.
+        let include = vec!["Game.Player`1".to_string()];
+        assert!(type_matches("Game.Player`1", &include));
+        assert!(type_matches("Game.Player", &include));
+        assert!(!type_matches("Game.Enemy", &include));
+        assert!(type_matches("Game.Player.Nested", &["Game.Player".to_string()]));
+    }
 }

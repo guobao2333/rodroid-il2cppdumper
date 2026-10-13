@@ -11440,7 +11440,9 @@ pub fn decompile_methods_to_csharp(
                 continue;
             }
             if !include_types.is_empty() {
-                let full_type = executor.get_type_def_name(td, tdi, metadata, il2cpp, true, false);
+                // Same name the GUI picker stores (`Namespace.Name`1`), not
+                // get_type_def_name (strips arity) — type-only filters must hit.
+                let full_type = crate::output::pseudo_c::picker_type_name(metadata, td);
                 if !crate::output::pseudo_c::type_matches(&full_type, &include_types) {
                     continue;
                 }

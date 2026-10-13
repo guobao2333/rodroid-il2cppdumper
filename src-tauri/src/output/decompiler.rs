@@ -308,9 +308,10 @@ impl Il2CppDecompiler {
                         let Some(td) = metadata.type_defs.get(type_def_index) else {
                             return false;
                         };
-                        let full = executor.get_type_def_name(
-                            td, type_def_index, metadata, il2cpp, true, false,
-                        );
+                        // Must match picker wire names (keeps `1), not dump.cs
+                        // display names (strips arity) — otherwise type-only
+                        // selections dump 0 types.
+                        let full = crate::output::pseudo_c::picker_type_name(metadata, td);
                         crate::output::pseudo_c::type_matches(&full, include_types)
                     })
                     .map(|type_def_index| (img_idx, type_def_index, image_name.clone()))
@@ -780,8 +781,7 @@ impl Il2CppDecompiler {
             if assemblies.is_empty() && types.is_empty() {
                 true
             } else {
-                let full_type =
-                    executor.get_type_def_name(type_def, type_def_index, metadata, il2cpp, true, false);
+                let full_type = crate::output::pseudo_c::picker_type_name(metadata, type_def);
                 crate::output::pseudo_c::method_body_filter_allows(
                     image_name,
                     &full_type,
