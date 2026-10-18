@@ -1,6 +1,6 @@
 export type ThemeMode = "system" | "light" | "dark";
 
-export type AppLanguage = "en" | "sq" | "hi" | "id" | "jv" | "es" | "ar";
+export type AppLanguage = "en" | "zh_cn" | "sq" | "hi" | "id" | "jv" | "es" | "ar";
 
 export interface LanguageInfo {
   code: AppLanguage;
@@ -516,7 +516,7 @@ const jv: TranslationKeys = { ...en,
   setting_compiler_layout: "Tata Letak Kompiler", layout_gcc: "GCC", layout_msvc: "MSVC",
 };
 
-const translations: Record<AppLanguage, TranslationKeys> = { en, sq, ar, es, hi, id, jv };
+const translations: Record<AppLanguage, TranslationKeys> = { en, zh_cn, sq, ar, es, hi, id, jv };
 
 export function getTranslations(lang: AppLanguage): TranslationKeys {
   return translations[lang] || en;
