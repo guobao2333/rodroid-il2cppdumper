@@ -1,0 +1,142 @@
+name: "Android Release"
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install Rust stable + Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: |
+            aarch64-linux-android
+            armv7-linux-androideabi
+            i686-linux-android
+            x86_64-linux-android
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android
+          shared-key: android
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config cmake git
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: |
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
+
+      - name: Install frontend dependencies
+        run: |
+          npm install
+          npm install \
+            @tauri-apps/api@2.12.3 \
+            @tauri-apps/plugin-os@2.4.0 \
+            @tauri-apps/plugin-dialog@2.7.0 \
+            @tauri-apps/plugin-fs@2.5.0 \
+            @tauri-apps/plugin-opener@2.5.3 \
+            --legacy-peer-deps --no-save
+
+      - name: Initialize Tauri Android project if needed
+        env:
+          CI: true
+        run: |
+          set -euo pipefail
+          if [ ! -d "src-tauri/gen/android" ]; then
+            echo "Initializing Tauri Android project..."
+            npx tauri android init --ci
+          else
+            echo "src-tauri/gen/android already exists"
+          fi
+
+      - name: Build Android APK (release, unsigned)
+        env:
+          CI: true
+        run: |
+          set -euo pipefail
+          mkdir -p android-artifacts
+
+          echo "Building Tauri Android release APK (unsigned)..."
+          npx tauri android build --apk --ci -v
+
+          APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
+          if [ -d "$APK_DIR" ]; then
+            find "$APK_DIR" -type f -name "*.apk" -exec cp -f {} android-artifacts/ \;
+          fi
+
+          if [ -z "$(ls -A android-artifacts 2>/dev/null)" ]; then
+            echo "::error::No APK was generated."
+            exit 1
+          fi
+          echo "Artifacts:"
+          ls -lah android-artifacts
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Android-APK
+          path: android-artifacts/*
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload to release (tag runs)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          echo "Uploading Android APK to release tag: $TAG"
+
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "Rodroid IL2CPP Dumper $TAG" \
+              --notes "Android APK build artifacts for $TAG" \
+              --draft
+          fi
+
+          shopt -s nullglob
+          files=(android-artifacts/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No APKs to upload"
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber
+          echo "Uploaded: ${files[*]}"
