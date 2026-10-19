@@ -1,6 +1,6 @@
 export type ThemeMode = "system" | "light" | "dark";
 
-export type AppLanguage = "en" | "zh-CN" | "sq" | "hi" | "id" | "jv" | "es" | "ar";
+export type AppLanguage = "en" | "zh_CN" | "sq" | "hi" | "id" | "jv" | "es" | "ar";
 
 export interface LanguageInfo {
   code: AppLanguage;
@@ -9,7 +9,7 @@ export interface LanguageInfo {
 
 export const LANGUAGES: LanguageInfo[] = [
   { code: "en", displayName: "English" },
-  { code: "zh-CN", displayName: "简体中文" },
+  { code: "zh_CN", displayName: "简体中文" },
   { code: "sq", displayName: "Shqip" },
   { code: "hi", displayName: "Hindi" },
   { code: "id", displayName: "Bahasa Indonesia" },
@@ -161,7 +161,7 @@ const en: TranslationKeys = {
   setting_compiler_layout: "Compiler Layout", layout_gcc: "GCC", layout_msvc: "MSVC",
 };
 
-const zh-CN: TranslationKeys = {
+const zh_CN: TranslationKeys = {
   app_name: "Rodroid IL2CPP 转储器", settings: "设置", label_about: "关于",
   select_binary: "选择二进制文件", select_metadata: "选择 global-metadata.dat",
   start_dump: "开始转储", new_dump: "新建转储", try_again: "重试", dump_again: "重新转储",
@@ -516,7 +516,7 @@ const jv: TranslationKeys = { ...en,
   setting_compiler_layout: "Tata Letak Kompiler", layout_gcc: "GCC", layout_msvc: "MSVC",
 };
 
-const translations: Record<AppLanguage, TranslationKeys> = { en, zh-CN, sq, ar, es, hi, id, jv };
+const translations: Record<AppLanguage, TranslationKeys> = { en, zh_CN, sq, ar, es, hi, id, jv };
 
 export function getTranslations(lang: AppLanguage): TranslationKeys {
   return translations[lang] || en;
